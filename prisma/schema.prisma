@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  agent
+}
+
+enum Channel {
+  sms
+  whatsapp
+}
+
+enum Direction {
+  inbound
+  outbound
+}
+
+enum NoteVisibility {
+  public
+  private
+}
+
+enum MessageStatus {
+  draft
+  scheduled
+  sent
+  delivered
+  failed
+  read
+}
+
+model User {
+  id    String  @id @default(cuid())
+  email String  @unique
+  name  String?
+  image String?
+  role  Role    @default(agent)
+
+  threads  Thread[]
+  notes    Note[]
+  messages Message[] @relation("MessageAuthor")
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  emailVerified Boolean   @default(false)
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("user")
+}
+
+model Contact {
+  id      String  @id @default(cuid())
+  name    String?
+  phone   String  @unique
+  waOptIn Boolean @default(false) // FYI: for WA sandbox/use later
+
+  threads   Thread[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Thread {
+  id        String  @id @default(cuid())
+  contactId String
+  ownerId   String? // optional agent "owner" - could be null
+  channel   Channel
+
+  lastMessageAt DateTime @default(now())
+  unreadCount   Int      @default(0)
+
+  contact  Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  owner    User?     @relation(fields: [ownerId], references: [id])
+  messages Message[]
+  notes    Note[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contactId])
+  @@index([lastMessageAt])
+  @@index([channel])
+}
+
+model Message {
+  id          String        @id @default(cuid())
+  threadId    String
+  authorId    String? // null for inbound (customer)
+  channel     Channel
+  direction   Direction
+  body        String
+  media       Json? // URLs array or object (esp. WA)
+  status      MessageStatus @default(sent)
+  providerId  String? // Twilio SID
+  scheduledAt DateTime?
+  sentAt      DateTime? // when actually sent to provider
+  deliveredAt DateTime?
+  readAt      DateTime?
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User?  @relation(name: "MessageAuthor", fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([threadId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model Note {
+  id         String         @id @default(cuid())
+  threadId   String
+  authorId   String
+  visibility NoteVisibility @default(public)
+  body       String
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([threadId])
+  @@index([visibility])
+}
+
+model EventLog {
+  id        String   @id @default(cuid())
+  type      String // "message.created", "note.created", "webhook.inbound", etc.
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+}
+
+model Session {
+  id           String   @id
+  expiresAt    DateTime
+  token        String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  ipAddress    String?
+  userAgent    String?
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  providerId String
+  accountId  String
+  type       String?
+
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  scope                 String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  password              String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([providerId, accountId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
