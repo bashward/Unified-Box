@@ -1,26 +1,26 @@
-export const runtime = "nodejs"
-export const dynamic = "force-dynamic"
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server"
-import { validateTwilioRequest } from "@/lib/integrations/twilio"    
-import  { prisma }  from "@/lib/db"
-import { pusherServer, threadChannel } from "@/lib/realtime/pusher"
-import { webhookInput } from "@/lib/validators/webhook"
-import { logEvent } from "@/lib/analytics/logger"              
+import { NextResponse } from "next/server";
+import { validateTwilioRequest } from "@/lib/integrations/twilio";
+import { prisma } from "@/lib/db";
+import { pusherServer, threadChannel } from "@/lib/realtime/pusher";
+import { webhookInput } from "@/lib/validators/webhook";
+import { logEvent } from "@/lib/analytics/logger";
 
 export async function POST(req: Request) {
-  const raw = await req.text()                              
-  const params = Object.fromEntries(new URLSearchParams(raw))
-  const url = process.env.PUBLIC_WEBHOOK_URL!          
-  const sig = (req.headers.get("x-twilio-signature") || "").trim()
+  const raw = await req.text();
+  const params = Object.fromEntries(new URLSearchParams(raw));
+  const url = process.env.PUBLIC_WEBHOOK_URL!;
+  const sig = (req.headers.get("x-twilio-signature") || "").trim();
 
   if (!validateTwilioRequest(url, sig, params)) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 403 })
+    return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
   }
 
-  const p = webhookInput.parse(params);                        
-  const from = p.From;                                         
-  const to   = p.To;
+  const p = webhookInput.parse(params);
+  const from = p.From;
+  const to = p.To;
   const body = p.Body ?? "";
   const isWA = from.startsWith("whatsapp:");
   const phone = from.replace("whatsapp:", "");
@@ -33,13 +33,17 @@ export async function POST(req: Request) {
     update: {},
   });
 
-  //ensure thread for 
-  let thread = await prisma.thread.findFirst({ where: { contactId: contact.id, channel } });
+  //ensure thread for
+  let thread = await prisma.thread.findFirst({
+    where: { contactId: contact.id, channel },
+  });
   if (!thread) {
-    thread = await prisma.thread.create({ data: { contactId: contact.id, channel } });
+    thread = await prisma.thread.create({
+      data: { contactId: contact.id, channel },
+    });
   }
 
-  //collect media URLs 
+  //collect media URLs
   const mediaCount = Number(p.NumMedia ?? "0") || 0;
   const media = mediaCount
     ? Array.from({ length: mediaCount }).map((_, i) => ({
@@ -59,15 +63,15 @@ export async function POST(req: Request) {
       media: media as any,
       status: "delivered",
       providerId: p.MessageSid,
-      sentAt: new Date(), 
+      sentAt: new Date(),
     },
   });
 
   await pusherServer.trigger(
-  threadChannel(message.threadId),
-  "message.created",
-  { message }
-)
+    threadChannel(message.threadId),
+    "message.created",
+    { message },
+  );
 
   //bump thread metadata
   await prisma.thread.update({
@@ -75,9 +79,11 @@ export async function POST(req: Request) {
     data: { lastMessageAt: new Date(), unreadCount: { increment: 1 } },
   });
 
-  await logEvent("webhook.inbound", { id: message.id, from: from })
+  await logEvent("webhook.inbound", { id: message.id, from: from });
 
-
-  // Respond quickly (Twilio expects 200)
-  return new Response("", { status: 200, headers: { "content-type": "text/xml" } });
+  //respond
+  return new Response("", {
+    status: 200,
+    headers: { "content-type": "text/xml" },
+  });
 }

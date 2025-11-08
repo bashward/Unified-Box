@@ -1,15 +1,20 @@
 import { requireRole } from "../../lib/auth/guards";
 
-import { isTrial, getTrialNumber, getVerifiedNumbers, getWhatsAppFrom } from "@/lib/trial";
+import {
+  isTrial,
+  getTrialNumber,
+  getVerifiedNumbers,
+  getWhatsAppFrom,
+} from "@/lib/trial";
 
 export const dynamic = "force-dynamic";
 
-export default function SettingsPage() {
-  //await requireRole("admin")
-  const trial = isTrial()
-  const smsFrom = getTrialNumber()
-  const waFrom = getWhatsAppFrom()
-  const verified = getVerifiedNumbers()
+export default async function SettingsPage() {
+  await requireRole("admin");
+  const trial = isTrial();
+  const smsFrom = getTrialNumber();
+  const waFrom = getWhatsAppFrom();
+  const verified = getVerifiedNumbers();
 
   return (
     <main className="p-6 space-y-6">
@@ -24,8 +29,17 @@ export default function SettingsPage() {
 
       {trial && (
         <div className="rounded-2xl border border-amber-200/40 bg-amber-50/50 p-4 text-sm dark:border-amber-400/20 dark:bg-amber-900/10">
-          In Twilio <b>trial mode</b>, you can only message <b>verified recipient numbers</b>.
-          Add your phone(s) in <a href="https://www.twilio.com/console/phone-numbers/verified" target="_blank" className="underline">Twilio Console → Verified</a>, then include them in <code className="rounded bg-muted px-1">VERIFIED_NUMBERS</code>.
+          In Twilio <b>trial mode</b>, you can only message{" "}
+          <b>verified recipient numbers</b>. Add your phone(s) in{" "}
+          <a
+            href="https://www.twilio.com/console/phone-numbers/verified"
+            target="_blank"
+            className="underline"
+          >
+            Twilio Console → Verified
+          </a>
+          , then include them in{" "}
+          <code className="rounded bg-muted px-1">VERIFIED_NUMBERS</code>.
         </div>
       )}
 
@@ -52,10 +66,10 @@ export default function SettingsPage() {
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-4">
-          <div className="text-xs text-muted-foreground mb-1">WhatsApp Sender</div>
-          <div className="text-lg font-medium">
-            {waFrom ?? "—"}
+          <div className="text-xs text-muted-foreground mb-1">
+            WhatsApp Sender
           </div>
+          <div className="text-lg font-medium">{waFrom ?? "—"}</div>
           <p className="mt-2 text-xs text-muted-foreground">
             For sandbox, use the Twilio WA sandbox number and join code.
           </p>
@@ -63,7 +77,9 @@ export default function SettingsPage() {
       </section>
 
       <section className="rounded-2xl border border-border bg-card p-4">
-        <div className="mb-2 text-sm font-medium">Verified recipient numbers</div>
+        <div className="mb-2 text-sm font-medium">
+          Verified recipient numbers
+        </div>
         {verified.length ? (
           <ul className="space-y-1 text-sm">
             {verified.map((v) => (
@@ -79,10 +95,10 @@ export default function SettingsPage() {
           <div className="text-sm text-muted-foreground">None configured.</div>
         )}
         <div className="mt-3 text-xs text-muted-foreground">
-          Set via <code className="rounded bg-muted px-1">VERIFIED_NUMBERS</code>.
+          Set via{" "}
+          <code className="rounded bg-muted px-1">VERIFIED_NUMBERS</code>.
         </div>
       </section>
     </main>
   );
 }
-

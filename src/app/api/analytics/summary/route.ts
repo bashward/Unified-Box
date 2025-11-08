@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { messagesByChannel7d, avgFirstResponseTime24h } from "@/lib/analytics/queries";
+import {
+  messagesByChannel7d,
+  avgFirstResponseTime24h,
+} from "@/lib/analytics/queries";
 
 export const revalidate = 0;
 

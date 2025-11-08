@@ -1,7 +1,7 @@
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "../components/theme/ThemeProvider";
 import "./globals.css";
-import  QueryProvider  from "@/lib/query"
+import QueryProvider from "@/lib/query";
 import Header from "@/components/Header";
 
 const inter = Inter({
@@ -43,9 +43,9 @@ export default function RootLayout({
       <body className={`${inter.variable} ${mono.variable} antialiased`}>
         <ThemeProvider>
           <QueryProvider>
-            <Header/>
+            <Header />
             <div className="pt-16">{children}</div>
-            </QueryProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -2,57 +2,57 @@
 
 Small, production-lean **unified inbox** for SMS + WhatsApp with scheduling, notes, realtime, analytics, role-based access, and a clear trial-mode UX — built on **Next.js 16**, **Prisma/Postgres**, **Twilio**, **Pusher**, **Better Auth**, **Zod**, and **React Query**.
 
-* **Goal:** Centralize outreach and replies across SMS + WhatsApp with history, notes, and live collaboration in one place.
-* **Timeframe:** 10–15 hours (completed)
-* **Live demo script:** see the “Demo walkthrough” section below.
+- **Goal:** Centralize outreach and replies across SMS + WhatsApp with history, notes, and live collaboration in one place.
+- **Timeframe:** 10–15 hours (completed)
+- **Live demo script:** see the “Demo walkthrough” section below.
 
 ---
 
 ## Table of contents
 
-* [Architecture overview](#architecture-overview)
-* [Core features](#core-features)
-* [Repository structure](#repository-structure)
-* [Database schema (ERD)](#database-schema-erd)
-* [Prerequisites](#prerequisites)
-* [Configuration](#configuration)
+- [Architecture overview](#architecture-overview)
+- [Core features](#core-features)
+- [Repository structure](#repository-structure)
+- [Database schema (ERD)](#database-schema-erd)
+- [Prerequisites](#prerequisites)
+- [Configuration](#configuration)
+  - [.env example](#env-example)
 
-  * [.env example](#env-example)
-* [Local development](#local-development)
+- [Local development](#local-development)
+  - [Database & Prisma](#database--prisma)
+  - [Ngrok & Twilio webhooks](#ngrok--twilio-webhooks)
+  - [Pusher realtime](#pusher-realtime)
 
-  * [Database & Prisma](#database--prisma)
-  * [Ngrok & Twilio webhooks](#ngrok--twilio-webhooks)
-  * [Pusher realtime](#pusher-realtime)
-* [How to use](#how-to-use)
-* [HTTP API](#http-api)
-* [Analytics & export](#analytics--export)
-* [Security, quality & observability](#security-quality--observability)
-* [Integration comparison](#integration-comparison)
-* [Known limitations](#known-limitations)
-* [Next steps](#next-steps)
-* [Demo walkthrough (3–5 min)](#demo-walkthrough-35-min)
-* [References](#references)
+- [How to use](#how-to-use)
+- [HTTP API](#http-api)
+- [Analytics & export](#analytics--export)
+- [Security, quality & observability](#security-quality--observability)
+- [Integration comparison](#integration-comparison)
+- [Known limitations](#known-limitations)
+- [Next steps](#next-steps)
+- [Demo walkthrough (3–5 min)](#demo-walkthrough-35-min)
+- [References](#references)
 
 ---
 
 ## Architecture overview
 
-* **Frontend:** Next.js 16 (App Router, TypeScript), React 18, Tailwind CSS v4, `next-themes`
-* **Server:** Next.js API routes (Node runtime)
-* **Database:** PostgreSQL via Prisma ORM
-* **Auth:** Better Auth (email/password + Google), role claims (`admin`, `agent`)
-* **Realtime:** Pusher (public key subscribe for this slice)
-* **Messaging:** Twilio (SMS + WhatsApp Sandbox)
-* **Validation:** Zod
-* **Data fetching/state:** React Query (optimistic updates)
+- **Frontend:** Next.js 16 (App Router, TypeScript), React 18, Tailwind CSS v4, `next-themes`
+- **Server:** Next.js API routes (Node runtime)
+- **Database:** PostgreSQL via Prisma ORM
+- **Auth:** Better Auth (email/password + Google), role claims (`admin`, `agent`)
+- **Realtime:** Pusher (public key subscribe for this slice)
+- **Messaging:** Twilio (SMS + WhatsApp Sandbox)
+- **Validation:** Zod
+- **Data fetching/state:** React Query (optimistic updates)
 
 Design highlights:
 
-* Normalized message model across channels; threads by contact
-* Clear roles and protected routes (middleware + guards)
-* Webhook-first ingestion with signature validation
-* Simple “send later” scheduler with a cron-safe GET endpoint
-* Minimal, scalable components and lib modules
+- Normalized message model across channels; threads by contact
+- Clear roles and protected routes (middleware + guards)
+- Webhook-first ingestion with signature validation
+- Simple “send later” scheduler with a cron-safe GET endpoint
+- Minimal, scalable components and lib modules
 
 ---
 
@@ -60,68 +60,67 @@ Design highlights:
 
 ### Authentication & roles
 
-* Sign In / Sign Up (credentials) + Google OAuth.
-* Role claims: `admin`, `agent`. `/settings` is **admin-only**.
-* Middleware enforces auth; unauthorized users are redirected to `/auth/sign-in`.
-* Sessions persisted in DB.
+- Sign In / Sign Up (credentials) + Google OAuth.
+- Role claims: `admin`, `agent`. `/settings` is **admin-only**.
+- Middleware enforces auth; unauthorized users are redirected to `/auth/sign-in`.
+- Sessions persisted in DB.
 
 ### Unified inbox (3-pane)
 
-* Route: `/inbox`
-* Left: **ThreadList** with filters (Unread / Scheduled / Channel) + search.
-* Middle: **ThreadView** with compact bubbles, direction alignment, lazy media preview for WA images.
-* Right: **ContactPanel**: contact info + notes timeline (public/private).
+- Route: `/inbox`
+- Left: **ThreadList** with filters (Unread / Scheduled / Channel) + search.
+- Middle: **ThreadView** with compact bubbles, direction alignment, lazy media preview for WA images.
+- Right: **ContactPanel**: contact info + notes timeline (public/private).
 
 ### Send & schedule (SMS / WhatsApp)
 
-* `POST /api/send` validates input with Zod and:
+- `POST /api/send` validates input with Zod and:
+  - Sends immediately via Twilio (status `sent`) or
+  - Persists `status='scheduled'` when `scheduleAt` is provided (no Twilio call yet).
 
-  * Sends immediately via Twilio (status `sent`) or
-  * Persists `status='scheduled'` when `scheduleAt` is provided (no Twilio call yet).
-* **Trial guard**: server enforces `VERIFIED_NUMBERS` (Twilio trial); UI explains trial limits.
-* Composer supports channel switch (SMS/WA), body input, media URL for WA, **Send** & **Send later**.
-* React Query optimistic mutation updates the thread instantly.
+- **Trial guard**: server enforces `VERIFIED_NUMBERS` (Twilio trial); UI explains trial limits.
+- Composer supports channel switch (SMS/WA), body input, media URL for WA, **Send** & **Send later**.
+- React Query optimistic mutation updates the thread instantly.
 
 ### Inbound webhook (Twilio)
 
-* `POST /api/webhooks/twilio`
-* Validates Twilio signature; upserts **Contact**, ensures **Thread**, inserts inbound **Message**, bumps `lastMessageAt` and `unreadCount`.
-* WA media URLs saved to `Message.media` JSON.
-* Designed to return 200 quickly.
+- `POST /api/webhooks/twilio`
+- Validates Twilio signature; upserts **Contact**, ensures **Thread**, inserts inbound **Message**, bumps `lastMessageAt` and `unreadCount`.
+- WA media URLs saved to `Message.media` JSON.
+- Designed to return 200 quickly.
 
 ### Notes (public/private)
 
-* `POST /api/notes` creates notes with visibility flag.
-* Right panel shows notes timeline; optimistic insert + realtime append.
-* Unified React Query cache key: `["threadSidebar", threadId]`.
+- `POST /api/notes` creates notes with visibility flag.
+- Right panel shows notes timeline; optimistic insert + realtime append.
+- Unified React Query cache key: `["threadSidebar", threadId]`.
 
 ### Scheduling runner
 
-* DB keeps `Message.scheduledAt` and `status='scheduled'`.
-* `GET /api/schedule/run`:
-
-  * Finds due messages,
-  * Sends via Twilio,
-  * Updates `status='sent'`, `sentAt=now()`,
-  * Emits `message.created` to subscribers.
+- DB keeps `Message.scheduledAt` and `status='scheduled'`.
+- `GET /api/schedule/run`:
+  - Finds due messages,
+  - Sends via Twilio,
+  - Updates `status='sent'`, `sentAt=now()`,
+  - Emits `message.created` to subscribers.
 
 ### Realtime (Pusher)
 
-* Channel: `thread-{threadId}`
-* Events: `message.created`, `note.created`
-* Hook merges events into React Query cache for live updates in ThreadView/ContactPanel.
+- Channel: `thread-{threadId}`
+- Events: `message.created`, `note.created`
+- Hook merges events into React Query cache for live updates in ThreadView/ContactPanel.
 
 ### Analytics + export
 
-* `/dashboard` tiles:
+- `/dashboard` tiles:
+  - **Messages by channel (7d)**
+  - **Avg first response time (24h)**
 
-  * **Messages by channel (7d)**
-  * **Avg first response time (24h)**
-* `GET /api/analytics/export` streams a CSV for the above.
+- `GET /api/analytics/export` streams a CSV for the above.
 
 ### Settings / Trial UX
 
-* `/settings` (admin): displays Twilio trial number and verified-contacts requirement; link to buy a number.
+- `/settings` (admin): displays Twilio trial number and verified-contacts requirement; link to buy a number.
 
 ---
 
@@ -315,16 +314,16 @@ erDiagram
 
 ## Prerequisites
 
-* **Node.js** 20 LTS
-* **npm** 10+ (or pnpm/yarn if preferred)
-* **PostgreSQL** 14+ (local or cloud; Docker ok)
-* **Twilio** account with:
+- **Node.js** 20 LTS
+- **npm** 10+ (or pnpm/yarn if preferred)
+- **PostgreSQL** 14+ (local or cloud; Docker ok)
+- **Twilio** account with:
+  - One SMS number (trial is fine)
+  - **WhatsApp Sandbox** enabled for testing
 
-  * One SMS number (trial is fine)
-  * **WhatsApp Sandbox** enabled for testing
-* **Ngrok** (for public webhook URL in dev)
-* **Pusher** account (free tier is fine)
-* **Google OAuth** (for optional sign-in)
+- **Ngrok** (for public webhook URL in dev)
+- **Pusher** account (free tier is fine)
+- **Google OAuth** (for optional sign-in)
 
 ---
 
@@ -365,8 +364,8 @@ GOOGLE_CLIENT_SECRET=
 
 Notes:
 
-* **VERIFIED_NUMBERS**: For Twilio trial, add the E.164 caller IDs you verified in Twilio Console (SMS) and the phone(s) that joined the **WhatsApp Sandbox**. This is enforced server-side.
-* **PUBLIC_BASE_URL** must be HTTPS and reachable by Twilio (ngrok recommended in dev).
+- **VERIFIED_NUMBERS**: For Twilio trial, add the E.164 caller IDs you verified in Twilio Console (SMS) and the phone(s) that joined the **WhatsApp Sandbox**. This is enforced server-side.
+- **PUBLIC_BASE_URL** must be HTTPS and reachable by Twilio (ngrok recommended in dev).
 
 ---
 
@@ -392,8 +391,8 @@ npm run dev
 
 Helpful scripts:
 
-* `npx prisma migrate reset` – reset DB and re-seed
-* `npm run lint` / `npm run format`
+- `npx prisma migrate reset` – reset DB and re-seed
+- `npm run lint` / `npm run format`
 
 ### Ngrok & Twilio webhooks
 
@@ -406,10 +405,9 @@ Helpful scripts:
 2. Copy the ngrok URL into `.env` as `PUBLIC_BASE_URL`.
 
 3. **Configure Twilio webhooks**:
-
-   * **SMS**: Set **Messaging webhook** to
+   - **SMS**: Set **Messaging webhook** to
      `POST ${PUBLIC_BASE_URL}/api/webhooks/twilio`
-   * **WhatsApp Sandbox**: In Twilio Console under *Messaging → Try it out → WhatsApp Sandbox*, set **When a message comes in** to the same URL and join the sandbox from your phone per Twilio’s instructions.
+   - **WhatsApp Sandbox**: In Twilio Console under _Messaging → Try it out → WhatsApp Sandbox_, set **When a message comes in** to the same URL and join the sandbox from your phone per Twilio’s instructions.
 
 4. Send yourself an SMS/WA and reply from your phone — inbound messages should hit the webhook and appear in the thread.
 
@@ -417,55 +415,46 @@ Helpful scripts:
 
 ### Pusher realtime
 
-* Ensure `PUSHER_*` and `NEXT_PUBLIC_PUSHER_*` match and the `PUSHER_CLUSTER` is correct.
-* The app subscribes to `thread-{threadId}` channels and listens for `message.created` / `note.created`.
+- Ensure `PUSHER_*` and `NEXT_PUBLIC_PUSHER_*` match and the `PUSHER_CLUSTER` is correct.
+- The app subscribes to `thread-{threadId}` channels and listens for `message.created` / `note.created`.
 
 ---
 
 ## How to use
 
 1. **Sign in**
-
-   * Visit `/auth/sign-in`. Use credentials or Google OAuth.
-   * Role enforcement:
-
-     * `/settings` → **admin only**
-     * `/inbox`, `/dashboard` → **agent/admin**
+   - Visit `/auth/sign-in`. Use credentials or Google OAuth.
+   - Role enforcement:
+     - `/settings` → **admin only**
+     - `/inbox`, `/dashboard` → **agent/admin**
 
 2. **Inbox**
-
-   * `/inbox` loads with a selected thread (or the first available) to avoid 404s in side panels.
-   * Use filters (**Unread**, **Scheduled**, **Channel**) and search.
+   - `/inbox` loads with a selected thread (or the first available) to avoid 404s in side panels.
+   - Use filters (**Unread**, **Scheduled**, **Channel**) and search.
 
 3. **Send / Send later**
-
-   * Use the **Composer** to choose **SMS** or **WhatsApp**.
-   * Add a media URL for WhatsApp images.
-   * Click **Send** for immediate delivery (subject to trial guard) or **Send later** and pick a time.
+   - Use the **Composer** to choose **SMS** or **WhatsApp**.
+   - Add a media URL for WhatsApp images.
+   - Click **Send** for immediate delivery (subject to trial guard) or **Send later** and pick a time.
 
 4. **Run the scheduler in dev**
-
-   * Manually trigger due sends:
+   - Manually trigger due sends:
 
      ```bash
      curl -sS "${PUBLIC_BASE_URL}/api/schedule/run"
      ```
 
 5. **Notes**
-
-   * Add **public** or **private** notes in the right panel; appears optimistically and then via realtime events.
+   - Add **public** or **private** notes in the right panel; appears optimistically and then via realtime events.
 
 6. **Realtime**
-
-   * Open the same thread in two tabs; sends and notes append live.
+   - Open the same thread in two tabs; sends and notes append live.
 
 7. **Analytics**
-
-   * `/dashboard` shows tiles; click **Export CSV** to download the data behind them.
+   - `/dashboard` shows tiles; click **Export CSV** to download the data behind them.
 
 8. **Settings**
-
-   * `/settings` (admin) shows your trial number and the verified-contacts requirement.
+   - `/settings` (admin) shows your trial number and the verified-contacts requirement.
 
 ---
 
@@ -486,20 +475,20 @@ Helpful scripts:
 
 ## Analytics & export
 
-* **Messages by channel (7d)** — grouped counts for SMS vs WA.
-* **Avg first response time (24h)** — computed with SQL (CTEs/windowing).
-* **Export**: `GET /api/analytics/export` produces a CSV of the tile data.
+- **Messages by channel (7d)** — grouped counts for SMS vs WA.
+- **Avg first response time (24h)** — computed with SQL (CTEs/windowing).
+- **Export**: `GET /api/analytics/export` produces a CSV of the tile data.
 
 ---
 
 ## Security, quality & observability
 
-* **AuthN/Z:** Better Auth with role claims; middleware route protection; `/settings` is admin-only.
-* **Validation:** All external input is Zod-validated before processing.
-* **Webhook security:** Twilio signature validation occurs before DB mutations.
-* **Indexes:** Critical fields indexed (`Thread.lastMessageAt`, `Message.status/scheduledAt`, etc.).
-* **Lint/format:** ESLint + Prettier. CI-friendly.
-* **Event logging:** Optional `EventLog` records key events for debugging/auditing.
+- **AuthN/Z:** Better Auth with role claims; middleware route protection; `/settings` is admin-only.
+- **Validation:** All external input is Zod-validated before processing.
+- **Webhook security:** Twilio signature validation occurs before DB mutations.
+- **Indexes:** Critical fields indexed (`Thread.lastMessageAt`, `Message.status/scheduledAt`, etc.).
+- **Lint/format:** ESLint + Prettier. CI-friendly.
+- **Event logging:** Optional `EventLog` records key events for debugging/auditing.
 
 ---
 
@@ -515,30 +504,30 @@ Helpful scripts:
 
 Key decisions:
 
-* Normalize messages across channels in a single `Message` table for consistent querying.
-* Keep scheduling simple (DB + GET runner) to be cron-friendly on any platform.
-* Use optimistic UI + realtime to keep threads consistent across tabs/sessions.
+- Normalize messages across channels in a single `Message` table for consistent querying.
+- Keep scheduling simple (DB + GET runner) to be cron-friendly on any platform.
+- Use optimistic UI + realtime to keep threads consistent across tabs/sessions.
 
 ---
 
 ## Known limitations
 
-* Local dev scheduler requires a manual `GET /api/schedule/run` or an external cron.
-* Trial-mode SMS inbound is restricted in some regions (notably India); WhatsApp Sandbox is recommended for the full demo loop.
-* Media is URL-based (no local uploads in this slice).
-* Pusher uses public subscribe for this slice; production should secure channels with an auth endpoint.
+- Local dev scheduler requires a manual `GET /api/schedule/run` or an external cron.
+- Trial-mode SMS inbound is restricted in some regions (notably India); WhatsApp Sandbox is recommended for the full demo loop.
+- Media is URL-based (no local uploads in this slice).
+- Pusher uses public subscribe for this slice; production should secure channels with an auth endpoint.
 
 ---
 
 ## Next steps
 
-* File uploads to object storage (S3) with signed URLs.
-* Secure realtime with private channels + auth endpoint; presence & typing indicators.
-* Mentions/cursors/collab via Yjs.
-* Deeper analytics (per-agent SLA, delivery rates, WA template performance).
-* Multi-tenant orgs and assignment workflows.
-* E2E tests (Playwright) and unit tests.
-* Deployment and cron automation (e.g., Vercel cron, GitHub Actions).
+- File uploads to object storage (S3) with signed URLs.
+- Secure realtime with private channels + auth endpoint; presence & typing indicators.
+- Mentions/cursors/collab via Yjs.
+- Deeper analytics (per-agent SLA, delivery rates, WA template performance).
+- Multi-tenant orgs and assignment workflows.
+- E2E tests (Playwright) and unit tests.
+- Deployment and cron automation (e.g., Vercel cron, GitHub Actions).
 
 ---
 
@@ -557,7 +546,7 @@ Key decisions:
 
 ## References
 
-* Assignment brief and requirements. 
+- Assignment brief and requirements.
 
 ---
 

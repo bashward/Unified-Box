@@ -1,40 +1,42 @@
-import { NextResponse } from "next/server"
-import { pusherServer, threadChannel } from "@/lib/realtime/pusher"
-import { sendMessageInput } from "@/lib/validators/message"
-import { prisma } from "@/lib/db"
-import { auth } from "@/lib/auth"
-import { sendSMS, sendWhatsApp } from "@/lib/integrations/twilio"
-import { logEvent } from "@/lib/analytics/logger"
+import { NextResponse } from "next/server";
+import { pusherServer, threadChannel } from "@/lib/realtime/pusher";
+import { sendMessageInput } from "@/lib/validators/message";
+import { prisma } from "@/lib/db";
+import { requireSession } from "@/lib/auth/guards";
+import { sendSMS, sendWhatsApp } from "@/lib/integrations/twilio";
+import { logEvent } from "@/lib/analytics/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-     
-    const session = await auth.api.getSession({ headers: req.headers })
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const user = session.user
+    const session = await requireSession();
+    const user = session.user;
 
-    const json = await req.json()
-    const input = sendMessageInput.parse(json)
-    const now = new Date()
-    const scheduleAt =
-          input.scheduleAt
-        ? (typeof input.scheduleAt === "string"
+    const json = await req.json();
+    const input = sendMessageInput.parse(json);
+    const now = new Date();
+    const scheduleAt = input.scheduleAt
+      ? typeof input.scheduleAt === "string"
         ? new Date(input.scheduleAt)
-        : input.scheduleAt)
-        : undefined
+        : input.scheduleAt
+      : undefined;
 
     if (!input.contactId && !input.threadId) {
-      return NextResponse.json({ error: "Provide contactId or threadId" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Provide contactId or threadId" },
+        { status: 400 },
+      );
     }
 
     //resolve contact and thread
-    const thread =
-      input.threadId
-        ? await prisma.thread.findUnique({ where: { id: input.threadId }, include: { contact: true } })
-        : null;
+    const thread = input.threadId
+      ? await prisma.thread.findUnique({
+          where: { id: input.threadId },
+          include: { contact: true },
+        })
+      : null;
 
     const contact =
       thread?.contact ??
@@ -46,7 +48,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
-
     const ensureThread =
       thread ??
       (await prisma.thread.create({
@@ -57,30 +58,30 @@ export async function POST(req: Request) {
         },
       }));
 
-   if (scheduleAt && scheduleAt > now) {
-  const scheduled = await prisma.message.create({
-    data: {
-      threadId: ensureThread.id,
-      authorId: user.id,              
-      channel: input.channel,
-      direction: "outbound",
-      body: input.body,
-      media: input.media ?? undefined,
-      status: "scheduled",
-      scheduledAt: input.scheduleAt,  
-    },
-    include: { thread: { include: { contact: true } } },
-  })
-  await pusherServer.trigger(
-  threadChannel(scheduled.threadId),
-  "message.created",
-  { message: scheduled }
-)
-  return NextResponse.json({ message: scheduled }, { status: 201 });
-}
+    if (scheduleAt && scheduleAt > now) {
+      const scheduled = await prisma.message.create({
+        data: {
+          threadId: ensureThread.id,
+          authorId: user.id,
+          channel: input.channel,
+          direction: "outbound",
+          body: input.body,
+          media: input.media ?? undefined,
+          status: "scheduled",
+          scheduledAt: input.scheduleAt,
+        },
+        include: { thread: { include: { contact: true } } },
+      });
+      await pusherServer.trigger(
+        threadChannel(scheduled.threadId),
+        "message.created",
+        { message: scheduled },
+      );
+      return NextResponse.json({ message: scheduled }, { status: 201 });
+    }
 
     //send via Twilio
-    const to = contact.phone; 
+    const to = contact.phone;
     const provider =
       input.channel === "sms"
         ? await sendSMS(to, input.body)
@@ -89,7 +90,7 @@ export async function POST(req: Request) {
     const saved = await prisma.message.create({
       data: {
         threadId: ensureThread.id,
-        authorId: user.id, 
+        authorId: user.id,
         channel: input.channel,
         direction: "outbound",
         body: input.body,
@@ -101,11 +102,10 @@ export async function POST(req: Request) {
     });
 
     await pusherServer.trigger(
-    threadChannel(saved.threadId),
-    "message.created",
-    { message: saved }
-     )
-
+      threadChannel(saved.threadId),
+      "message.created",
+      { message: saved },
+    );
 
     //bump thread timestamps/unreads
     await prisma.thread.update({
@@ -113,8 +113,11 @@ export async function POST(req: Request) {
       data: { lastMessageAt: now },
     });
 
-    await logEvent("message.created", { id: saved.id, dir: "outbound", channel: saved.channel });
-
+    await logEvent("message.created", {
+      id: saved.id,
+      dir: "outbound",
+      channel: saved.channel,
+    });
 
     return NextResponse.json({ message: saved });
   } catch (err: any) {

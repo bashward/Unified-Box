@@ -5,7 +5,6 @@ import { signOut } from "@/lib/auth-client";
 import ThemeToggle from "./theme/ThemeToggle";
 
 export default function Header() {
-
   return (
     <header className="fixed inset-x-0 top-0 z-40 h-16 border-b border-border bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-full max-w-screen-2xl items-center justify-between px-4">
@@ -14,7 +13,6 @@ export default function Header() {
         </Link>
 
         <nav className="flex items-center gap-2">
-          
           <details className="relative">
             <summary className="flex h-9 w-9 cursor-pointer select-none items-center justify-center rounded-full border border-border bg-card text-sm font-medium">
               T
@@ -24,9 +22,15 @@ export default function Header() {
               <div className="px-2 pb-1 pt-1 text-xs uppercase tracking-wide text-muted-foreground">
                 Appearance
               </div>
-              <ThemeToggle/>
+              <ThemeToggle />
               <div className="my-2 h-px w-full bg-border" />
-
+              
+              <Link
+                href="/dashboard"
+                className="block rounded-md px-3 py-2 text-sm hover:bg-accent"
+              >
+                Dashboard
+              </Link>
               <Link
                 href="/settings"
                 className="block rounded-md px-3 py-2 text-sm hover:bg-accent"

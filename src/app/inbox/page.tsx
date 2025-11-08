@@ -16,9 +16,9 @@ export default async function InboxPage({
     t?: string; // threadId
   };
 }) {
-  await requireSession();
+  await requireSession()
 
-  const sp = await searchParams;
+  const sp = await searchParams
 
   const threads = await getThreads({
     unread: sp?.unread === "1",
@@ -43,7 +43,7 @@ export default async function InboxPage({
             </div>
           }
         >
-          {/* Client detail component handles realtime + optimistic later */}
+          {/* Client detail component handles realtime + optimistic */}
           <ThreadView threadId={activeThreadId} />
         </Suspense>
       </section>

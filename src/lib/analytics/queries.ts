@@ -9,10 +9,9 @@ export async function messagesByChannel7d() {
     _count: { _all: true },
   });
   const map: Record<string, number> = { sms: 0, whatsapp: 0 };
-  rows.forEach(r => (map[r.channel] = r._count._all));
+  rows.forEach((r) => (map[r.channel] = r._count._all));
   return map;
 }
-
 
 export async function avgFirstResponseTime24h() {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -35,7 +34,8 @@ export async function avgFirstResponseTime24h() {
 
   for (const m of msgs) {
     if (m.direction === "inbound") {
-      if (!firstInbound.has(m.threadId)) firstInbound.set(m.threadId, m.createdAt);
+      if (!firstInbound.has(m.threadId))
+        firstInbound.set(m.threadId, m.createdAt);
     } else if (m.direction === "outbound") {
       const t0 = firstInbound.get(m.threadId);
       if (t0) {

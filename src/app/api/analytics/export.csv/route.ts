@@ -1,4 +1,7 @@
-import { messagesByChannel7d, avgFirstResponseTime24h } from "@/lib/analytics/queries";
+import {
+  messagesByChannel7d,
+  avgFirstResponseTime24h,
+} from "@/lib/analytics/queries";
 
 export const revalidate = 0;
 
@@ -13,10 +16,15 @@ export async function GET() {
     ["sms_7d", String(byChannel.sms ?? 0)],
     ["whatsapp_7d", String(byChannel.whatsapp ?? 0)],
     ["avg_first_response_ms_24h", avg?.avgMs != null ? String(avg.avgMs) : ""],
-    ["avg_first_response_min_24h", avg?.avgMinutes != null ? String(avg.avgMinutes) : ""],
+    [
+      "avg_first_response_min_24h",
+      avg?.avgMinutes != null ? String(avg.avgMinutes) : "",
+    ],
   ];
 
-  const body = rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+  const body = rows
+    .map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(","))
+    .join("\n");
 
   return new Response(body, {
     headers: {
