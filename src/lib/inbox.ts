@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 
 export type ThreadsFilter = {
+  teamId?: string;
   unread?: boolean;
   scheduled?: boolean;
   channel?: "sms" | "whatsapp";
@@ -9,10 +10,11 @@ export type ThreadsFilter = {
 };
 
 export async function getThreads(filter: ThreadsFilter = {}) {
-  const { unread, scheduled, channel, search, limit = 50 } = filter;
+  const { teamId, unread, scheduled, channel, search, limit = 50 } = filter;
 
   return prisma.thread.findMany({
     where: {
+      teamId,
       ...(channel ? { channel } : {}),
       ...(unread ? { unreadCount: { gt: 0 } } : {}),
       ...(scheduled ? { messages: { some: { status: "scheduled" } } } : {}),

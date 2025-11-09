@@ -32,8 +32,9 @@ export default function SignIn() {
       const fd = new FormData(e.currentTarget);
       const email = String(fd.get("email"));
       const password = String(fd.get("password"));
-      const name = String(fd.get("name") || "") || email.split("@")[0].trim();
-      await signUp.email({ email, password, name });
+      const name = String(fd.get("name") || "") || email.split("@")[0].trim()
+      const teamId = process.env.DEFAULT_TEAM_ID ?? "default-team"
+      await signUp.email({ email, password, name, teamId });
       r.replace("/inbox");
     } catch (err: any) {
       setError(err?.message ?? "Sign-up failed. Try a different email.");

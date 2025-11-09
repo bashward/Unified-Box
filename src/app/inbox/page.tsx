@@ -8,19 +8,19 @@ import { Suspense } from "react";
 export default async function InboxPage({
   searchParams,
 }: {
-  searchParams?: {
+  searchParams?: Promise<{
     unread?: "1";
     scheduled?: "1";
     channel?: "sms" | "whatsapp";
     q?: string;
     t?: string; // threadId
-  };
+  }>;
 }) {
-  await requireSession()
-
+  const session = await requireSession()
   const sp = await searchParams
 
   const threads = await getThreads({
+    teamId: session.teamId,
     unread: sp?.unread === "1",
     scheduled: sp?.scheduled === "1",
     channel: sp?.channel,

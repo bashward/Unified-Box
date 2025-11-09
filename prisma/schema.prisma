@@ -37,11 +37,13 @@ enum MessageStatus {
 }
 
 model User {
-  id    String  @id @default(cuid())
-  email String  @unique
-  name  String?
-  image String?
-  role  Role    @default(agent)
+  id     String  @id @default(cuid())
+  email  String  @unique
+  name   String?
+  image  String?
+  role   Role    @default(agent)
+  teamId String
+  team   Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   threads  Thread[]
   notes    Note[]
@@ -53,18 +55,36 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
+  @@index([teamId])
   @@map("user")
+}
+
+model Team {
+  id        String     @id @default(cuid())
+  name      String
+  createdAt DateTime   @default(now())
+  users     User[]
+  contacts  Contact[]
+  threads   Thread[]
+  messages  Message[]
+  notes     Note[]
+  eventLogs EventLog[]
 }
 
 model Contact {
   id      String  @id @default(cuid())
   name    String?
-  phone   String  @unique
-  waOptIn Boolean @default(false) // FYI: for WA sandbox/use later
+  phone   String
+  waOptIn Boolean @default(false) // for WA sandbox/use later
+  teamId  String
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   threads   Thread[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([teamId, phone])
+  @@index([teamId])
 }
 
 model Thread {
@@ -72,6 +92,8 @@ model Thread {
   contactId String
   ownerId   String? // optional agent "owner" - could be null
   channel   Channel
+  teamId    String
+  team      Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   lastMessageAt DateTime @default(now())
   unreadCount   Int      @default(0)
@@ -84,9 +106,11 @@ model Thread {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([teamId, contactId, channel])
+  @@index([teamId, lastMessageAt])
+  @@index([teamId, channel])
+  @@index([teamId, ownerId])
   @@index([contactId])
-  @@index([lastMessageAt])
-  @@index([channel])
 }
 
 model Message {
@@ -103,13 +127,16 @@ model Message {
   sentAt      DateTime? // when actually sent to provider
   deliveredAt DateTime?
   readAt      DateTime?
+  teamId      String
+  team        Team          @relation(fields: [teamId], references: [id])
 
   thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   author User?  @relation(name: "MessageAuthor", fields: [authorId], references: [id])
 
   createdAt DateTime @default(now())
 
-  @@index([threadId])
+  @@index([teamId, status, scheduledAt])
+  @@index([threadId, createdAt])
   @@index([status])
   @@index([scheduledAt])
 }
@@ -120,35 +147,40 @@ model Note {
   authorId   String
   visibility NoteVisibility @default(public)
   body       String
+  teamId     String
+  team       Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   author User   @relation(fields: [authorId], references: [id])
 
   createdAt DateTime @default(now())
 
-  @@index([threadId])
+  @@index([teamId, threadId])
+  @@index([threadId, createdAt])
   @@index([visibility])
 }
 
 model EventLog {
   id        String   @id @default(cuid())
   type      String // "message.created", "note.created", "webhook.inbound", etc.
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   payload   Json
   createdAt DateTime @default(now())
 
-  @@index([type, createdAt])
+  @@index([teamId, type, createdAt])
 }
 
 model Session {
-  id           String   @id
-  expiresAt    DateTime
-  token        String   @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  ipAddress    String?
-  userAgent    String?
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("session")
 }

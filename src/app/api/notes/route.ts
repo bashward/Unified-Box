@@ -15,6 +15,7 @@ export async function POST(req: Request) {
 
   const note = await prisma.note.create({
     data: {
+      teamId: session.teamId,
       threadId: input.threadId,
       body: input.body,
       visibility: input.visibility as any,

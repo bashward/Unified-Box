@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const sendMessageInput = z
   .object({
+    teamId: z.cuid().optional(),
     contactId: z.cuid().optional(),
     threadId: z.cuid().optional(),
     channel: z.enum(["sms", "whatsapp"]),

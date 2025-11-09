@@ -52,6 +52,7 @@ export async function POST(req: Request) {
       thread ??
       (await prisma.thread.create({
         data: {
+          teamId: session.teamId,
           contactId: contact.id,
           channel: input.channel,
           lastMessageAt: now,
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
     if (scheduleAt && scheduleAt > now) {
       const scheduled = await prisma.message.create({
         data: {
+          teamId: session.teamId,
           threadId: ensureThread.id,
           authorId: user.id,
           channel: input.channel,
@@ -89,6 +91,7 @@ export async function POST(req: Request) {
 
     const saved = await prisma.message.create({
       data: {
+        teamId: session.teamId,
         threadId: ensureThread.id,
         authorId: user.id,
         channel: input.channel,

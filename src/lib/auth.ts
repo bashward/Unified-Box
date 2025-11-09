@@ -20,6 +20,7 @@ export const auth = betterAuth({
   },
   user: {
     additionalFields: {
+      teamId: { type: "string", input: true },
       role: { type: "string", input: false },
     },
   },

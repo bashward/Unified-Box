@@ -22,6 +22,7 @@ export default function Composer({ threadId, contactId, channel }: Props) {
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+
           threadId,
           contactId,
           channel,

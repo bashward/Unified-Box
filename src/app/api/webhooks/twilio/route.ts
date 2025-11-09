@@ -7,12 +7,14 @@ import { prisma } from "@/lib/db";
 import { pusherServer, threadChannel } from "@/lib/realtime/pusher";
 import { webhookInput } from "@/lib/validators/webhook";
 import { logEvent } from "@/lib/analytics/logger";
+import { requireSession } from "@/lib/auth/guards";
 
 export async function POST(req: Request) {
   const raw = await req.text();
   const params = Object.fromEntries(new URLSearchParams(raw));
   const url = process.env.PUBLIC_WEBHOOK_URL!;
   const sig = (req.headers.get("x-twilio-signature") || "").trim();
+  const session = await requireSession()
 
   if (!validateTwilioRequest(url, sig, params)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
@@ -28,8 +30,8 @@ export async function POST(req: Request) {
 
   //upsert contact
   const contact = await prisma.contact.upsert({
-    where: { phone },
-    create: { phone, name: null },
+    where: { teamId_phone: { teamId: session.teamId, phone } },
+    create: { teamId: session.teamId, phone, name: null },
     update: {},
   });
 
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
   });
   if (!thread) {
     thread = await prisma.thread.create({
-      data: { contactId: contact.id, channel },
+      data: { teamId: session.teamId, contactId: contact.id, channel },
     });
   }
 
@@ -55,6 +57,7 @@ export async function POST(req: Request) {
   //insert inbound message
   const message = await prisma.message.create({
     data: {
+      teamId: session.teamId,
       threadId: thread.id,
       authorId: null,
       channel: channel as any,
